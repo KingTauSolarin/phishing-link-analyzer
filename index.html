@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A client-side heuristic phishing link analyzer that explains suspicious URL characteristics without opening or contacting the link.">
+<title>Phishing Link Analyzer</title>
+<style>
+:root{--bg:#0b0f14;--card:#121923;--line:#223042;--text:#e6edf3;--mute:#8b9bb0;--acc:#2ee6a6;--bad:#ff5c6c;--warn:#ffb454;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#f4f7fa;--card:#fff;--line:#d5dde6;--text:#14202e;--mute:#5a6b7e;--acc:#0a9f6e;--bad:#d6293b;--warn:#b36b00}}
+:root[data-theme="light"]{--bg:#f4f7fa;--card:#fff;--line:#d5dde6;--text:#14202e;--mute:#5a6b7e;--acc:#0a9f6e;--bad:#d6293b;--warn:#b36b00}
+:root[data-theme="dark"]{--bg:#0b0f14;--card:#121923;--line:#223042;--text:#e6edf3;--mute:#8b9bb0;--acc:#2ee6a6;--bad:#ff5c6c;--warn:#ffb454}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5}
+main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.3rem;margin:0 0 2px}h1 span{color:var(--acc)}
+.by{font-size:.8rem;color:var(--mute);margin:0 0 12px}
+.sub{margin:0 0 16px;color:var(--mute);font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:14px}
+.card:first-of-type{margin-top:0}
+label{display:block;font-size:.8rem;color:var(--mute);margin-bottom:6px}
+input{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px;font:inherit;font-size:.95rem;font-family:ui-monospace,Menlo,Consolas,monospace}
+button{padding:10px 14px;border-radius:8px;border:1px solid var(--acc);background:transparent;color:var(--acc);font-size:.9rem;cursor:pointer}
+button:hover{opacity:.9}
+button.p{background:var(--acc);color:var(--bg);font-weight:600}
+.row{display:flex;gap:8px;margin-top:10px}.row button{flex:1}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center;font-size:.8rem;color:var(--mute)}
+.chips button{padding:4px 10px;font-size:.78rem;border-color:var(--line);color:var(--mute)}
+.verdict{font-size:1.2rem;font-weight:700;margin:0}
+.score-label{color:var(--mute);font-size:.8rem;margin-top:3px}
+.meter{height:10px;border-radius:6px;background:var(--bg);border:1px solid var(--line);overflow:hidden;margin:10px 0}
+.meter i{display:block;height:100%}
+.score-info{display:flex;justify-content:space-between;color:var(--mute);font-size:.75rem;margin-top:4px}
+ul{list-style:none;padding:0;margin:10px 0 0}
+li{border-left:4px solid var(--mute);background:var(--bg);border-radius:6px;padding:8px 10px;margin-top:8px;font-size:.88rem}
+li.high{border-color:var(--bad)}li.med{border-color:var(--warn)}li.low{border-color:var(--mute)}li.ok{border-color:var(--acc)}
+li small{display:block;color:var(--mute);margin-top:2px}
+table{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:8px}
+td{padding:6px 4px;border-top:1px solid var(--line);vertical-align:top;word-break:break-all}
+td:first-child{color:var(--mute);width:34%}
+h2{font-size:.95rem;margin:0}
+.err{color:var(--bad)}
+.method{font-size:.78rem;color:var(--mute);margin-top:8px}
+.score-guide{display:grid;grid-template-columns:1fr;gap:6px;margin-top:10px}
+.score-guide div{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:7px 9px;font-size:.78rem}
+.score-guide b{display:block;margin-bottom:2px}
+footer{margin-top:18px;font-size:.75rem;color:var(--mute);text-align:center}
+.copy{margin-top:8px}
+</style>
+</head>
+<body>
+<main>
+<header><h1>Phishing <span>Link</span> Analyzer</h1><div class="by">by King Sabatsu Kisuke</div></header>
+<p class="sub">Paste a suspicious link to see which characteristics may indicate phishing. The analyzer does not open or contact the submitted link.</p>
+
+<div class="card">
+<label for="url">Link to check</label>
+<input id="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://...">
+<div class="row"><button class="p" id="go">Analyze</button><button id="def">Copy safe (defanged) link</button></div>
+<div class="chips"><span>Try:</span>
+<button data-u="http://paypa1-secure-login.verify-account.xyz/signin">Fake bank</button>
+<button data-u="http://192.168.0.1@evil.example/login">@ trick</button>
+<button data-u="https://accounts.google.com">Legit</button>
+</div>
+</div>
+
+<div id="out"></div>
+
+<footer>Heuristic analysis only. The score represents detected risk indicators, not a probability. A low score does not prove that a link is safe, and a high score does not by itself prove that a link is malicious.
+<div class="copy">© 2026 King Sabatsu Kisuke · MIT License</div></footer>
+</main>
+
+<script>
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const SHORT=new Set(["bit.ly","tinyurl.com","t.co","goo.gl","ow.ly","is.gd","buff.ly","rebrand.ly","cutt.ly","shorturl.at","tiny.cc"]);
+const BAD_TLD=new Set(["zip","mov","xyz","top","click","country","gq","tk","ml","ga","cf","work","support","loan","rest","icu","cyou","monster","buzz"]);
+const BRANDS=["paypal","google","microsoft","apple","amazon","facebook","instagram","netflix","whatsapp","binance","coinbase","linkedin","github","dropbox","dhl","fedex","paystack","flutterwave","opay","gtbank","zenith","firstbank","chase","wellsfargo"];
+const KW=["login","signin","verify","secure","account","update","confirm","password","wallet","bank","billing","invoice","suspend","unlock","claim","bonus","free","gift","prize","otp"];
+const SLD=new Set(["co.uk","org.uk","gov.uk","ac.uk","com.ng","org.ng","gov.ng","edu.ng","com.au","co.za","co.in","com.br","co.jp"]);
+const vars=t=>{const b=t.replace(/0/g,"o").replace(/3/g,"e").replace(/5/g,"s").replace(/@/g,"a").replace(/vv/g,"w").replace(/rn/g,"m");return[b.replace(/1/g,"l"),b.replace(/1/g,"i")]};
+
+function analyze(raw){
+  raw=raw.trim();
+  if(!raw)return{error:"Paste a link first."};
+  const F=[];let note="";
+  const add=(sev,pts,t,d)=>F.push({sev,pts,t,d});
+
+  if(/^(javascript|data|vbscript|file):/i.test(raw)){
+    add("high",50,"Not a normal web link","This uses a script, data, or local-file scheme instead of a normal HTTP/HTTPS web address.");
+    return{score:50,F,parts:[["Scheme",raw.split(":")[0]]],defanged:raw.replace(/\./g,"[.]"),note};
+  }
+
+  let s=raw;
+  if(!/^[a-z][a-z0-9+.-]*:\/\//i.test(s)){s="http://"+s;note="No scheme was supplied, so http:// was assumed."}
+  let u;
+  try{u=new URL(s)}catch(e){return{error:"That doesn't look like a valid link."}}
+
+  if(!/^https?:$/.test(u.protocol))add("high",50,"Unusual scheme: "+u.protocol,"The submitted link does not use the normal HTTP or HTTPS web protocols.");
+  else if(u.protocol==="http:")add("med",10,"Uses HTTP instead of HTTPS","HTTP does not provide the same transport encryption as HTTPS. HTTPS alone, however, does not prove that a website is trustworthy.");
+  else add("ok",0,"Uses HTTPS","HTTPS encrypts traffic between the browser and server, but scammers can also use HTTPS.");
+
+  const host=u.hostname.toLowerCase().replace(/\.$/,"");
+  const isIP=/^\d{1,3}(\.\d{1,3}){3}$/.test(host)||host.startsWith("[");
+  const labels=host.split(".");
+  let reg=host,subs=[];
+  if(!isIP&&labels.length>2){
+    const n=SLD.has(labels.slice(-2).join("."))?3:2;
+    reg=labels.slice(-n).join(".");subs=labels.slice(0,-n);
+  }
+  const regLabel=reg.split(".")[0],tokens=host.split(/[.\-_]/);
+
+  if(isIP)add("high",30,"Uses an IP address instead of a domain name","Using a raw IP address is not automatically malicious, but it is a useful warning indicator because phishing pages can be hosted directly on IP addresses.");
+  if(u.username||u.password)add("high",30,"Contains text before an @ sign","Browsers treat the hostname after the @ sign as the actual destination. The real destination here is "+host+".");
+  if(labels.some(l=>l.startsWith("xn--")))add("high",30,"Possible lookalike / punycode domain","Internationalized domain names can sometimes be used to create characters that visually resemble trusted domains.");
+  if(SHORT.has(reg))add("med",20,"Uses a URL shortener","The visible link hides the final destination. Shortened links are not inherently malicious, but they make inspection harder.");
+  const tld=labels[labels.length-1];
+  if(!isIP&&BAD_TLD.has(tld))add("med",15,"Uses a commonly abused domain ending (."+tld+")","This domain ending is not proof of malicious activity, but it can be associated with higher abuse rates.");
+
+  let hit=false;
+  for(const b of BRANDS){
+    if(tokens.some(t=>t!==b&&vars(t).includes(b))){
+      add("high",35,'Possible impersonation of "'+b+'"','A domain component resembles the trusted brand name "'+b+'". The registered domain is '+reg+".");
+      hit=true;break;
+    }
+  }
+  if(!hit)for(const b of BRANDS){
+    if(tokens.includes(b)&&regLabel!==b){
+      add("high",30,'Uses the name "'+b+'" but is not the official domain',"Brand names placed in subdomains or additional domain components can be used to make a phishing address appear legitimate. The registered domain is "+reg+".");
+      hit=true;break;
+    }
+  }
+  if(!hit){
+    const p=(u.pathname+u.search).toLowerCase(),b=BRANDS.find(b=>p.includes(b));
+    if(b)add("med",10,'Brand name "'+b+'" appears in the URL path',"A brand name in a path is not proof of phishing. Verify that the registered domain actually belongs to the claimed organization.");
+  }
+
+  if(subs.length>=4)add("med",10,"Many subdomains ("+subs.length+")","Long chains of subdomains can make the real registered domain harder to notice.");
+  if((host.replace(/xn--/g,"").match(/-/g)||[]).length>=3)add("med",10,"Many hyphens in the domain","Multiple hyphens can be used in deceptive or automatically generated domains. This is only a supporting indicator.");
+  const kws=KW.filter(k=>(host+u.pathname).toLowerCase().includes(k));
+  if(kws.length)add(kws.length>2?"med":"low",Math.min(kws.length*5,15),"Login or pressure-related words: "+kws.join(", "),"Words such as these are commonly found in phishing pages that attempt to make users sign in, verify information, or take urgent action.");
+  if(u.port)add("med",10,"Non-default port ("+u.port+")","Web applications can legitimately use custom ports, but unusual ports can be worth investigating.");
+  if(/[?&][^=]*=(https?%3a|https?:)/i.test(u.search))add("med",10,"Contains another URL","A URL inside a parameter can sometimes be used for redirects or to hide a final destination.");
+  if((raw.match(/%[0-9a-f]{2}/gi)||[]).length>5)add("low",5,"Contains many encoded characters","Encoding can make parts of a URL harder for a person to inspect. Encoding itself is not malicious.");
+  if(raw.length>200)add("low",10,"Very long URL","Very long URLs can be legitimate, but they can also hide suspicious parameters or make inspection harder.");
+  else if(raw.length>100)add("low",5,"Long URL","The length of a URL is only a supporting indicator and does not prove malicious activity.");
+
+  /* Heuristic score: the accumulated weight of detected indicators. It is NOT a probability or a guarantee. */
+  const score=Math.min(100,Math.max(0,F.reduce((t,f)=>t+f.pts,0)));
+  const parts=[["Scheme",u.protocol.replace(":","")],["Full host",host],["Registered domain",reg],["Subdomains",subs.join(".")||"none"],["Port",u.port||"default"],["Path",u.pathname],["Parameters",[...u.searchParams.keys()].length+""]];
+  return{score,F,parts,defanged:s.replace(/^http/i,"hxxp").replace(/\./g,"[.]"),note};
+}
+/*UI*/
+let last="";
+function render(r){
+  const out=document.getElementById("out");
+  if(r.error){last="";out.innerHTML=`<div class="card err">${esc(r.error)}</div>`;return}
+  last=r.defanged;
+  const lvl=r.score>=50?"high":r.score>=20?"med":"low";
+  const L={
+    high:["High Risk","Several strong warning indicators were detected. Avoid opening the link or entering credentials until it has been independently verified.","--bad"],
+    med:["Suspicious","One or more warning indicators were detected. Verify the destination through another trusted channel before interacting with it.","--warn"],
+    low:["Low Risk Indicators","No major warning indicators were detected by this heuristic analyzer. This does not prove that the link is safe.","--acc"]
+  }[lvl];
+  const fl=r.F.length?r.F.map(f=>`<li class="${f.sev}"><b>${esc(f.t)}</b>${f.d?`<small>${esc(f.d)}</small>`:""}</li>`).join(""):`<li class="ok"><b>No common warning indicators found</b><small>This only means that the URL did not match the heuristic rules currently implemented.</small></li>`;
+  out.innerHTML=`<div class="card">
+<p class="verdict" style="color:var(${L[2]})">${L[0]} · ${r.score}/100</p>
+<div class="score-label">Heuristic risk score</div>
+<div class="meter"><i style="width:${r.score}%;background:var(${L[2]})"></i></div>
+<div class="score-info"><span>0 = fewer detected indicators</span><span>100 = more detected indicators</span></div>
+<div class="sub" style="margin:10px 0 0">${L[1]}${r.note?" "+esc(r.note):""}</div>
+<div class="method">Detection method: weighted heuristic rules. The score is not a probability and is not a guarantee of maliciousness.</div>
+</div>
+<div class="card"><h2>What we found</h2><ul>${fl}</ul></div>
+<div class="card"><h2>How the score works</h2>
+<div class="score-guide">
+<div><b>0–19 · Low Risk Indicators</b>Few or no warning indicators were detected.</div>
+<div><b>20–49 · Suspicious</b>One or more warning indicators were detected.</div>
+<div><b>50–100 · High Risk</b>Multiple or stronger warning indicators were detected.</div>
+</div>
+<div class="method">Individual indicators have different weights. Stronger indicators contribute more points to the overall score. The score is capped at 100.</div>
+</div>
+<div class="card"><h2>Link breakdown</h2><table>${r.parts.map(p=>`<tr><td>${esc(p[0])}</td><td>${esc(p[1])}</td></tr>`).join("")}</table></div>`;
+}
+const $=id=>document.getElementById(id);
+const run=()=>render(analyze($("url").value));
+$("go").onclick=run;
+$("url").onkeydown=e=>{if(e.key==="Enter")run()};
+document.querySelectorAll(".chips button").forEach(b=>b.onclick=()=>{$("url").value=b.dataset.u;run()});
+$("def").onclick=async e=>{
+  if(!last)run();
+  if(!last)return;
+  try{await navigator.clipboard.writeText(last);const o=e.target.textContent;e.target.textContent="Copied";setTimeout(()=>e.target.textContent=o,1000)}
+  catch(x){/* Clipboard access may be unavailable in some browser contexts. */}
+};
+</script>
+</body>
+</html>
